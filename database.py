@@ -68,3 +68,12 @@ class DatabaseManager:
                 SensorData.data["timestamp"].astext.cast(DateTime) <= datetime_range.end,
             ),
         ).all()
+
+    def get_first_sensor_data_date(self, sensor_id: int) -> datetime.datetime:
+        data = self._create_session().query(SensorData.data["timestamp"].astext.cast(DateTime)) \
+            .filter(SensorData.sensor_id == sensor_id) \
+            .order_by(SensorData.id.asc()) \
+            .limit(1) \
+            .all()
+        if len(data):
+            return data[0][0]

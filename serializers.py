@@ -5,7 +5,7 @@ import typing
 from database import SensorData
 
 
-class Serializer:
+class BaseSerializer:
     def serialize(self, out_stream: io.IOBase, data: typing.List[SensorData]):
         return self._serialize_unencrypted(out_stream, data)
 
@@ -13,7 +13,7 @@ class Serializer:
         pass
 
 
-class CsvSerializer(Serializer):
+class CsvSerializer(BaseSerializer):
     def _serialize_unencrypted(self, out_stream: io.IOBase, data: typing.List[SensorData]):
         if not data:
             return
