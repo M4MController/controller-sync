@@ -8,7 +8,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 ADD database.py .
 ADD serializers.py .
+ADD synchronizers.py .
 ADD utils.py .
-ADD sync_google_drive.py .
 
-CMD python main.py --db-uri $DB_URI
+ADD sync_yadisk.py .
+
+CMD while true; do python sync_yadisk.py --db-uri $DB_URI --token $TOKEN; sleep 86400; done

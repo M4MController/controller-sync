@@ -4,10 +4,12 @@ import os
 import shutil
 import typing
 
+import easywebdav
+import requests
+
 from database import DatabaseManager
 from serializers import BaseSerializer
 from utils import DateTimeRange
-
 
 logger = logging.getLogger(__name__)
 
@@ -29,18 +31,18 @@ class BaseSynchronizer:
         pass
 
     def __get_file_name_for_day(self, sensor_id: int, range: DateTimeRange) -> str:
-        return os.path.join(self.ROOT, "{sensor_id}.{year}.{month}.{day}.m4m".format(
+        return "{sensor_id}.{year}.{month}.{day}.m4m".format(
             sensor_id=sensor_id,
             year=range.start.year,
             month=range.start.month,
             day=range.start.day,
-        ))
+        )
 
     def sync(self):
         files = self._ls("/")
         if self.ROOT not in files:
+            logger.info("creating root folder")
             self._create_folder(self.ROOT)
-
         files = self._ls(self.ROOT)
 
         for sensor in self.__database.get_sensors():
@@ -64,7 +66,7 @@ class BaseSynchronizer:
                 temp_stream.seek(0)
 
                 logger.info("Saving %s", file_name)
-                self._upload(temp_stream, file_name)
+                self._upload(temp_stream, os.path.join(self.ROOT, file_name))
                 temp_stream.close()
 
                 i -= 1
@@ -92,3 +94,49 @@ class LocalSynchronizer(BaseSynchronizer):
         stream.seek(0)
         with open(path, "w+") as f:
             shutil.copyfileobj(stream, f)
+
+
+class WebDavSynchronizer(BaseSynchronizer):
+    def __init__(self, uri: str, auth=None, username: str = None, password: str = None, protocol=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__webdav = easywebdav.Client(
+            uri,
+            auth=auth,
+            username=username,
+            password=password,
+            protocol=protocol,
+        )
+
+    def _ls(self, path: str) -> typing.List[str]:
+        return [os.path.basename(file.name.strip('/')) for file in self.__webdav.ls(path)]
+
+    def _create_folder(self, path: str):
+        self.__webdav.mkdir(path)
+
+    def _upload(self, stream: io.IOBase, path: str):
+        self.__webdav._upload(stream, path)
+
+
+class YaDiskSynchronizer(WebDavSynchronizer):
+    class HTTPBearerAuth(requests.auth.AuthBase):
+        def __init__(self, token):
+            self.token = token
+
+        def __eq__(self, other):
+            return self.token == getattr(other, 'token', None)
+
+        def __ne__(self, other):
+            return not self == other
+
+        def __call__(self, r):
+            r.headers['Authorization'] = 'Bearer ' + self.token
+            return r
+
+    def __init__(self, token: str, *args, **kwargs):
+        super().__init__(
+            uri="webdav.yandex.ru",
+            protocol="https",
+            auth=YaDiskSynchronizer.HTTPBearerAuth(token),
+            *args,
+            **kwargs,
+        )
