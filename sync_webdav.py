@@ -2,8 +2,9 @@ import logging
 import sys
 from argparse import ArgumentParser
 
+import serializers
+
 from database import DatabaseManager
-from serializer import CsvSerializer
 from synchronizers import WebDavSynchronizer
 
 logging.basicConfig(
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 def main():
     parser = ArgumentParser()
     parser.add_argument("--db-uri", required=True)
+    parser.add_argument("--serializer", default="CsvRawSerializer")
     parser.add_argument("--webdav-uri", required=True)
     parser.add_argument("--webdav-protocol", required=False)
     parser.add_argument("--webdav-username")
@@ -30,7 +32,7 @@ def main():
     db = DatabaseManager(args.db_uri)
     serializer = WebDavSynchronizer(
         database=db,
-        serializer=CsvSerializer(),
+        serializer=getattr(serializers, args.serializer),
         uri=args.webdav_uri,
         protocol=args.webdav_protocol,
         username=args.webdav_username,

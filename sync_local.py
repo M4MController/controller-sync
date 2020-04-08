@@ -2,8 +2,9 @@ import logging
 import sys
 from argparse import ArgumentParser
 
+import serializers
+
 from database import DatabaseManager
-from serializers import CsvSerializer
 from synchronizers import LocalSynchronizer
 
 logging.basicConfig(
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 def main():
     parser = ArgumentParser()
     parser.add_argument("--db-uri", required=True)
+    parser.add_argument("--serializer", default="CsvRawSerializer")
     parser.add_argument("--root", required=True)
 
     args = parser.parse_args()
@@ -25,7 +27,7 @@ def main():
     logger.info("init")
 
     db = DatabaseManager(args.db_uri)
-    serializer = LocalSynchronizer(database=db, serializer=CsvSerializer(), root=args.root)
+    serializer = LocalSynchronizer(database=db, serializer=getattr(serializers, args.serializer)(), root=args.root)
     serializer.sync()
 
     logger.info("done")

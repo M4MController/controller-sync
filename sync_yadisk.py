@@ -2,8 +2,9 @@ import logging
 import sys
 from argparse import ArgumentParser
 
+import serializers
+
 from database import DatabaseManager
-from serializers import CsvSerializer
 from synchronizers import YaDiskSynchronizer
 
 logging.basicConfig(
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 def main():
     parser = ArgumentParser()
     parser.add_argument("--db-uri", required=True)
+    parser.add_argument("--serializer", default="CsvRawSerializer")
     parser.add_argument("--token", required=True)
 
     args = parser.parse_args()
@@ -27,7 +29,7 @@ def main():
     db = DatabaseManager(args.db_uri)
     serializer = YaDiskSynchronizer(
         database=db,
-        serializer=CsvSerializer(),
+        serializer=getattr(serializers, args.serializer)(),
         token=args.token,
     )
     serializer.sync()
