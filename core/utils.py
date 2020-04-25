@@ -1,6 +1,7 @@
 import calendar
 import datetime
 import dateutil.relativedelta
+import io
 import typing
 
 
@@ -53,3 +54,34 @@ class DateTimeRange:
 
     def __str__(self):
         return "{} - {}".format(self.start, self.end)
+
+
+class StreamWrapper(io.RawIOBase):
+    def __init__(self, stream: io.BufferedIOBase = None, close_source: bool = False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if stream:
+            self(stream)
+        self.__close_source = close_source
+
+    def __call__(self, stream: io.BufferedIOBase):
+        self._stream = stream
+        return self
+
+    def __getattr__(self, item):
+        return getattr(self._stream, item)
+
+    def read(self, *args, **kwargs) -> typing.Optional[bytes]:
+        return self._stream.read( *args, **kwargs)
+
+    def seek(self, *args, **kwargs) -> int:
+        return self._stream.seek(*args, **kwargs)
+
+    def write(self, *args, **kwargs) -> typing.Optional[int]:
+        return self._stream.write(*args, **kwargs)
+
+    def writable(self) -> bool:
+        return self._stream.writable()
+
+    def close(self):
+        if self.__close_source:
+            self._stream.close()

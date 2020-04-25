@@ -4,19 +4,22 @@ import io
 import json
 import typing
 
-from database import SensorData
+from core.database import SensorData
 
 
 class BaseSerializer:
     def serialize(self, out_stream: io.IOBase, data: typing.List[SensorData]):
-        return self._serialize_unencrypted(out_stream, data)
+        return self._serialize(out_stream, data)
 
-    def _serialize_unencrypted(self, out_stream: io.IOBase, data: typing.List[SensorData]):
+    def deserialize(self, input_stream: io.IOBase):
+        return input_stream.read()
+
+    def _serialize(self, out_stream: io.IOBase, data: typing.List[SensorData]):
         pass
 
 
 class CsvVerboseSerializer(BaseSerializer):
-    def _serialize_unencrypted(self, out_stream: io.IOBase, data: typing.List[SensorData]):
+    def _serialize(self, out_stream: io.IOBase, data: typing.List[SensorData]):
         if not data:
             return
 
@@ -36,16 +39,19 @@ class CsvVerboseSerializer(BaseSerializer):
 
 
 class CsvRawSerializer(BaseSerializer):
-    def _serialize_unencrypted(self, out_stream: io.IOBase, data: typing.List[SensorData]):
+    def _serialize(self, out_stream: io.IOBase, data: typing.List[SensorData]):
         if not data:
             return
 
-        csv_writer = csv.writer(out_stream, delimiter=',', quotechar='"')
-        csv_writer.writerow(["value", "signer", "sign"])
+        encoding = "utf-8"
+        delimeter = '\t'
+
+        out_stream.write("value{d}signer{d}sign\n".format(d=delimeter).encode(encoding))
 
         for row in data:
-            csv_writer.writerow([
-                json.dumps(row.data),
-                str(base64.b64encode(row.signer), encoding='utf-8') if row.signer else "",
-                str(base64.b64encode(row.sign), encoding='utf-8') if row.sign else "",
-            ])
+            out_stream.write("{value}{d}{signer}{d}{sign}\n".format(
+                d=delimeter,
+                value=json.dumps(row.data),
+                signer=str(base64.b64encode(row.signer), encoding='utf-8') if row.signer else "",
+                sign=str(base64.b64encode(row.sign), encoding='utf-8') if row.sign else ""
+            ).encode(encoding))

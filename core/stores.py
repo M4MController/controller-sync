@@ -1,27 +1,32 @@
+import datetime
 import io
 import logging
 import os
-import shutil
+import pathlib
 import typing
 
 import easywebdav
 import requests
 
-from database import DatabaseManager
-from serializers import BaseSerializer
-from utils import DateTimeRange
+from core.database import DatabaseManager
+from core.serializers import BaseSerializer
+from core.utils import DateTimeRange, StreamWrapper
 
 logger = logging.getLogger(__name__)
 
 
-class BaseSynchronizer:
+class BaseStore:
     ROOT = "M4M"
 
-    def __init__(self, database: DatabaseManager, serializer: BaseSerializer):
+    def __init__(self, serializer: BaseSerializer, database: DatabaseManager = None, stream_wrapper: type = None):
         self.__database = database
         self.__serializer = serializer
+        self.__stream_wrapper = stream_wrapper or StreamWrapper()
 
     def _upload(self, stream: io.IOBase, path: str):
+        pass
+
+    def _get_download_stream(self, path: str):
         pass
 
     def _create_folder(self, path: str):
@@ -30,49 +35,75 @@ class BaseSynchronizer:
     def _ls(self, path: str) -> typing.List[str]:
         pass
 
-    def __get_file_name_for_day(self, sensor_id: int, range: DateTimeRange) -> str:
+    @staticmethod
+    def __get_file_name_for_day(sensor_id: int, date: datetime.datetime) -> str:
         return "{sensor_id}.{year}.{month}.{day}.m4m".format(
             sensor_id=sensor_id,
-            year=range.start.year,
-            month=range.start.month,
-            day=range.start.day,
+            year=date.year,
+            month=date.month,
+            day=date.day,
         )
 
-    def sync(self):
+    def __get_m4m_files(self):
         files = self._ls("/")
         if self.ROOT not in files:
             logger.info("creating root folder")
             self._create_folder(self.ROOT)
-        files = self._ls(self.ROOT)
+        return self._ls(self.ROOT)
+
+    def sync(self):
+        files = self.__get_m4m_files()
 
         for sensor in self.__database.get_sensors():
             first_date = self.__database.get_first_sensor_data_date(sensor.id)
-            i = -1
+            first_date_range = DateTimeRange.day(first_date)
+            i = 0
 
             while True:
                 current_range = DateTimeRange.day(i)
-                if current_range.start < first_date:
+                if current_range.start < first_date_range.start:
                     break
 
-                file_name = self.__get_file_name_for_day(sensor.id, current_range)
+                file_name = self.__get_file_name_for_day(sensor.id, current_range.start)
                 if file_name in files:
-                    break
+                    i -= 1
+                    continue
+
+                data = self.__database.get_sensor_data(sensor_id=sensor.id, datetime_range=current_range)
+                if not data:
+                    i -= 1
+                    continue
 
                 logger.info("Converting %s", file_name)
-                temp_stream = io.StringIO()
-                self.__serializer.serialize(
-                    out_stream=temp_stream,
-                    data=self.__database.get_sensor_data(sensor_id=sensor.id, datetime_range=current_range))
-                temp_stream.seek(0)
+                with io.BytesIO() as temp_stream:
+                    with self.__stream_wrapper(stream=temp_stream) as wrapped_stream:
+                        self.__serializer.serialize(
+                            out_stream=wrapped_stream,
+                            data=data,
+                        )
 
-                logger.info("Saving %s", file_name)
-                self._upload(temp_stream, os.path.join(self.ROOT, file_name))
-                temp_stream.close()
+                    logger.info("Saving %s", file_name)
+                    temp_stream.seek(0)
+                    self._upload(temp_stream, os.path.join(self.ROOT, file_name))
 
                 i -= 1
 
+    def get(self, sensor_id: int, range: DateTimeRange) -> typing.List[bytes]:
+        result = []
+        files = self.__get_m4m_files()
+        current_day = range.start
+        while current_day <= range.end:
+            file_name = self.__get_file_name_for_day(sensor_id, current_day)
+            if file_name in files:
+                with self._get_download_stream(os.path.join(self.ROOT, file_name)) as file:
+                    with self.__stream_wrapper(file) as stream:
+                        result.append(stream.read())
+            current_day = current_day + datetime.timedelta(days=1)
 
-class LocalSynchronizer(BaseSynchronizer):
+        return result
+
+
+class LocalStore(BaseStore):
     def __init__(self, root: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__root = root
@@ -91,12 +122,14 @@ class LocalSynchronizer(BaseSynchronizer):
 
     def _upload(self, stream: io.IOBase, path: str):
         path = self.__normalize_path(path)
-        stream.seek(0)
-        with open(path, "w+") as f:
-            shutil.copyfileobj(stream, f)
+
+        pathlib.Path(path).write_bytes(stream.getbuffer())
+
+    def _get_download_stream(self, path: str):
+        return open(self.__normalize_path(path), 'rb')
 
 
-class WebDavSynchronizer(BaseSynchronizer):
+class WebDavStore(BaseStore):
     def __init__(self, uri: str, auth=None, username: str = None, password: str = None, protocol=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__webdav = easywebdav.Client(
@@ -116,8 +149,15 @@ class WebDavSynchronizer(BaseSynchronizer):
     def _upload(self, stream: io.IOBase, path: str):
         self.__webdav._upload(stream, path)
 
+    def _get_download_stream(self, path: str):
+        response = self.__webdav._send('GET', path, 200, stream=True)
+        result = io.BytesIO()
+        self.__webdav._download(result, response)
+        result.seek(0)
+        return result
 
-class YaDiskSynchronizer(WebDavSynchronizer):
+
+class YaDiskSynchronizer(WebDavStore):
     class HTTPBearerAuth(requests.auth.AuthBase):
         def __init__(self, token):
             self.token = token

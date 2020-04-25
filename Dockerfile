@@ -6,11 +6,11 @@ WORKDIR /application
 ADD requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-ADD database.py .
-ADD serializers.py .
-ADD synchronizers.py .
-ADD utils.py .
+ADD core/database.py .
+ADD core/serializers.py .
+ADD core/stores.py .
+ADD core/utils.py .
 
 ADD sync_yadisk.py .
 
-CMD while true; do python sync_yadisk.py --db-uri $DB_URI --token $TOKEN; sleep 86400; done
+CMD while true; do python sync_yadisk.py --db-uri $DB_URI --token $TOKEN --key $KEY; sleep 86400; done

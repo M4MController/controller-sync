@@ -2,10 +2,10 @@ import logging
 import sys
 from argparse import ArgumentParser
 
-import serializers
+from core import serializers
 
-from database import DatabaseManager
-from synchronizers import WebDavSynchronizer
+from core.database import DatabaseManager
+from core.stores import WebDavStore
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -30,9 +30,9 @@ def main():
     logger.info("init")
 
     db = DatabaseManager(args.db_uri)
-    serializer = WebDavSynchronizer(
+    serializer = WebDavStore(
         database=db,
-        serializer=getattr(serializers, args.serializer),
+        serializer=getattr(serializers, args.serializer)(encrypter=AesEncrypt(b"a")),
         uri=args.webdav_uri,
         protocol=args.webdav_protocol,
         username=args.webdav_username,

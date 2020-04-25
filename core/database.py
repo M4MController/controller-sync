@@ -4,7 +4,6 @@ import typing
 from sqlalchemy import (
     and_,
     create_engine,
-    or_,
     Column,
     ForeignKey,
     LargeBinary,
@@ -16,7 +15,7 @@ from sqlalchemy.orm import relationship, Session
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import JSON
 
-from utils import DateTimeRange
+from core.utils import DateTimeRange
 
 Base = declarative_base()
 
