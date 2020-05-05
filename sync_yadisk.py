@@ -21,8 +21,6 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("--db-uri", required=True)
     parser.add_argument("--serializer", default="CsvRawSerializer")
-    parser.add_argument("--key", required=False, type=str)
-    parser.add_argument("--token", required=True)
 
     args = parser.parse_args()
 
@@ -32,8 +30,8 @@ def main():
     serializer = YaDiskSynchronizer(
         database=db,
         serializer=getattr(serializers, args.serializer)(),
-        stream_wrapper=AesStreamWrapper(key=args.key.encode("utf-8")) if args.key else None,
-        token=args.token,
+        stream_wrapper=AesStreamWrapper(key=db.get_encryption_key()),
+        token=db.get_tokens().yandex_disk,
     )
     serializer.sync()
 

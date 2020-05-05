@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from core import serializers
 
 from core.database import DatabaseManager
+from core.encrypt import AesStreamWrapper
 from core.stores import WebDavStore
 
 logging.basicConfig(
@@ -32,7 +33,8 @@ def main():
     db = DatabaseManager(args.db_uri)
     serializer = WebDavStore(
         database=db,
-        serializer=getattr(serializers, args.serializer)(encrypter=AesEncrypt(b"a")),
+        serializer=getattr(serializers, args.serializer)(),
+        stream_wrapper=AesStreamWrapper(key=db.get_encryption_key()),
         uri=args.webdav_uri,
         protocol=args.webdav_protocol,
         username=args.webdav_username,

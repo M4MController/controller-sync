@@ -49,12 +49,28 @@ class SensorData(Base):
     )
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    pwd_hash = Column(String, nullable=False)
+
+
+class UserSocialTokens(Base):
+    __tablename__ = 'users_social_tokens'
+
+    user_id = Column(Integer, ForeignKey('users.id'), primary_key=True, nullable=False)
+    yandex_disk = Column(String)
+
+
 class DatabaseManager:
     def __init__(self, db_uri):
         self._db_uri = db_uri
 
     def _create_session(self):
-        return Session(create_engine(self._db_uri))
+        if not hasattr(self, "__session"):
+            setattr(self, "__session", Session(create_engine(self._db_uri)))
+        return getattr(self, "__session")
 
     def get_sensors(self) -> typing.List[Sensor]:
         return self._create_session().query(Sensor).all()
@@ -76,3 +92,10 @@ class DatabaseManager:
             .all()
         if len(data):
             return data[0][0]
+
+    def get_encryption_key(self):
+        key, = self._create_session().query(User.pwd_hash).one()
+        return key
+
+    def get_tokens(self):
+        return self._create_session().query(UserSocialTokens).one()

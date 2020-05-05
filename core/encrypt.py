@@ -9,8 +9,12 @@ from core.utils import StreamWrapper
 
 
 class AesStreamWrapper(StreamWrapper):
-    def __init__(self, key: bytes, *args, **kwargs):
+    def __init__(self, key: typing.Union[str, bytes], *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        if isinstance(key, str):
+            key = key.encode('utf-8')
+
         self.__block_size = AES.block_size
         self.__key = hashlib.sha256(key).digest()
         self.__cipher = None
@@ -54,7 +58,7 @@ class AesStreamWrapper(StreamWrapper):
         self.__write_buffer += b[:move_to_buffer_count]
         if len(self.__write_buffer) % self.__block_size == 0:
             self._stream.write(self.__cipher.encrypt(self.__write_buffer))
-            self.__write_buffer.clear()
+            self.__write_buffer = bytearray()
         b = b[move_to_buffer_count:]
 
         # encrypt remaining part (with no tail)
@@ -71,7 +75,7 @@ class AesStreamWrapper(StreamWrapper):
 
             to_pad = self.__block_size - len(self.__write_buffer) % self.__block_size
             self._stream.write(self.__cipher.encrypt(self.__write_buffer + bytearray([to_pad] * to_pad)))
-            self.__write_buffer.clear()
+            self.__write_buffer = bytearray()
         super().close()
 
     @staticmethod

@@ -21,7 +21,6 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("--db-uri", required=True)
     parser.add_argument("--serializer", default="CsvRawSerializer")
-    parser.add_argument("--key", required=False, type=str)
     parser.add_argument("--root", required=True)
 
     args = parser.parse_args()
@@ -32,7 +31,7 @@ def main():
     serializer = LocalStore(
         database=db,
         serializer=getattr(serializers, args.serializer)(),
-        stream_wrapper=AesStreamWrapper(key=args.key.encode("utf-8")) if args.key else None,
+        stream_wrapper=AesStreamWrapper(key=db.get_encryption_key()),
         root=args.root,
     )
     serializer.sync()
