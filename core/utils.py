@@ -85,3 +85,9 @@ class StreamWrapper(io.RawIOBase):
     def close(self):
         if self.__close_source:
             self._stream.close()
+
+
+def find_in_list(l: list, func):
+    for item in l:
+        if func(item):
+            return item

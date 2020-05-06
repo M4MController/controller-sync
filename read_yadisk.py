@@ -30,7 +30,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("--serializer", default="CsvRawSerializer")
     parser.add_argument("--key", required=False, type=str)
-    parser.add_argument("--sensor-id", type=int, required=True)
+    parser.add_argument("--sensor-id", type=str, required=True)
     parser.add_argument("--date", type=valid_date, required=True)
     parser.add_argument("--token", required=True)
     parser.add_argument("--output", "-o", default="out.tsv")
@@ -41,7 +41,7 @@ def main():
 
     serializer = YaDiskSynchronizer(
         serializer=getattr(serializers, args.serializer)(),
-        stream_wrapper=AesStreamWrapper(key=args.key.encode("utf-8")) if args.key else None,
+        stream_wrapper=AesStreamWrapper(key=args.key) if args.key else None,
         token=args.token,
     )
 

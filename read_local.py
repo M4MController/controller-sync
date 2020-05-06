@@ -30,7 +30,7 @@ def main():
     parser.add_argument("--serializer", default="CsvRawSerializer")
     parser.add_argument("--key", required=False, type=str)
     parser.add_argument("--root", required=True)
-    parser.add_argument("--sensor-id", type=int, required=True)
+    parser.add_argument("--sensor-id", type=str, required=True)
     parser.add_argument("--date", type=valid_date, required=True)
     parser.add_argument("--output", "-o", default="out.tsv")
 

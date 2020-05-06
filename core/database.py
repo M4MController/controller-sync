@@ -23,7 +23,7 @@ Base = declarative_base()
 class Sensor(Base):
     __tablename__ = "sensors"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(String(32), primary_key=True)
     name = Column(String, nullable=False)
 
     sensor_data = relationship(
@@ -37,7 +37,7 @@ class SensorData(Base):
     __tablename__ = "sensor_data"
 
     id = Column(Integer, primary_key=True)
-    sensor_id = Column(Integer, ForeignKey("sensors.id"), nullable=False)
+    sensor_id = Column(String(32), ForeignKey("sensors.id"), nullable=False)
     data = Column(JSON, nullable=False)
     sign = Column(LargeBinary)
     signer = Column(LargeBinary)
@@ -49,11 +49,11 @@ class SensorData(Base):
     )
 
 
-class User(Base):
-    __tablename__ = "users"
+class UserInfo(Base):
+    __tablename__ = "users_info"
 
     id = Column(Integer, primary_key=True)
-    pwd_hash = Column(String, nullable=False)
+    encrypt_key = Column(String)
 
 
 class UserSocialTokens(Base):
@@ -75,7 +75,7 @@ class DatabaseManager:
     def get_sensors(self) -> typing.List[Sensor]:
         return self._create_session().query(Sensor).all()
 
-    def get_sensor_data(self, sensor_id: int, datetime_range: DateTimeRange) -> typing.List[SensorData]:
+    def get_sensor_data(self, sensor_id: str, datetime_range: DateTimeRange) -> typing.List[SensorData]:
         return self._create_session().query(SensorData).filter(
             and_(
                 SensorData.sensor_id == sensor_id,
@@ -84,7 +84,7 @@ class DatabaseManager:
             ),
         ).all()
 
-    def get_first_sensor_data_date(self, sensor_id: int) -> datetime.datetime:
+    def get_first_sensor_data_date(self, sensor_id: str) -> datetime.datetime:
         data = self._create_session().query(SensorData.data["timestamp"].astext.cast(DateTime)) \
             .filter(SensorData.sensor_id == sensor_id) \
             .order_by(SensorData.id.asc()) \
@@ -94,7 +94,7 @@ class DatabaseManager:
             return data[0][0]
 
     def get_encryption_key(self):
-        key, = self._create_session().query(User.pwd_hash).one()
+        key, = self._create_session().query(UserInfo.encrypt_key).one()
         return key
 
     def get_tokens(self):

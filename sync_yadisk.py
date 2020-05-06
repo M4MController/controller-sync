@@ -6,7 +6,7 @@ from core import serializers
 
 from core.database import DatabaseManager
 from core.encrypt import AesStreamWrapper
-from core.stores import YaDiskSynchronizer
+from core.stores import YaDiskSynchronizer, Sensor
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -33,7 +33,8 @@ def main():
         stream_wrapper=AesStreamWrapper(key=db.get_encryption_key()),
         token=db.get_tokens().yandex_disk,
     )
-    serializer.sync()
+    for sensor in db.get_sensors():
+        serializer.sync(Sensor(name=sensor.name, id=sensor.id))
 
     logger.info("done")
 
