@@ -16,8 +16,6 @@ from core.utils import DateTimeRange, StreamWrapper, find_in_list
 
 logger = logging.getLogger(__name__)
 
-File = namedtuple("File", ["name", "is_dir"])
-
 
 class File:
     def __init__(self, name: str, is_dir: bool):
@@ -28,13 +26,20 @@ class File:
         return self.name
 
     def __eq__(self, other):
-        return self.name == other.name and self.is_dir == other.is_dir
+        if isinstance(other, str):
+            return self.name == other
+        else:
+            return self.name == other.name and self.is_dir == other.is_dir
+
+
+Controller = str
 
 
 class Sensor:
-    def __init__(self, id: str, name: str):
+    def __init__(self, id: str = None, name: str = None, controller: str = None):
         self.name = name
         self.id = id
+        self.controller = controller
 
     def __str__(self):
         return "{id}".format(name=self.name, id=self.id)
@@ -54,25 +59,24 @@ class BaseStore:
     ROOT = "M4M"
     __SENSOR_NAME_PREFIX = "."
 
-    def __init__(self, serializer: BaseSerializer, database: DatabaseManager = None, stream_wrapper: type = None):
-        self.__database = database
-        self.__serializer = serializer
-        self.__stream_wrapper = stream_wrapper or StreamWrapper()
-
+    def __init__(self):
         self.__create_root_dir()
 
-    def get_sensors(self) -> typing.List[Sensor]:
+    def get_controllers(self):
+        return [file.name for file in self._ls(self.__join()) if file.is_dir]
+
+    def get_sensors(self, controller: Controller) -> typing.List[Sensor]:
         result = []
-        for file in self._ls(self.__join()):
+        for file in self._ls(self.__join(str(controller))):
             if file.is_dir:
                 sensor_id = file.name
-                files = self._ls(self.__join(sensor_id))
+                files = self._ls(self.__join(str(controller), sensor_id))
                 sensor_file = find_in_list(files, lambda file: file.name.startswith(self.__SENSOR_NAME_PREFIX))
                 if sensor_file:
                     sensor_name = sensor_file.name[1:]
                 else:
                     sensor_name = "No Name"
-                result.append(Sensor(id=sensor_id, name=sensor_name))
+                result.append(Sensor(id=sensor_id, name=sensor_name, controller=controller))
         return result
 
     def _upload(self, stream: io.IOBase, path: str):
@@ -113,22 +117,31 @@ class BaseStore:
             logger.info("creating root folder")
             self._create_folder(self.ROOT)
 
-    def sync(self, sensor: Sensor):
-        sensors = self.get_sensors()
+    def prepare_for_sync_controller(self, controller: Controller):
+        remote_controllers = self.get_controllers()
+        if controller not in remote_controllers:
+            self._create_folder(self.__join(str(controller)))
 
-        if sensor not in sensors:
-            self._create_folder(self.__join(str(sensor)))
+    def prepare_for_sync_sensor(self, sensor: Sensor):
+        remote_sensors = self.get_sensors(sensor.controller)
 
-        files = self._ls(self.__join(str(sensor)))
+        if sensor not in remote_sensors:
+            self._create_folder(self.__join(str(sensor.controller), str(sensor)))
+
+    def sync(self, sensor: Sensor, db: DatabaseManager, serializer: BaseSerializer, stream_wrapper: StreamWrapper):
+        files = self._ls(self.__join(str(sensor.controller), str(sensor)))
         file_sensor_name = find_in_list(files, lambda file: file.name.startswith(self.__SENSOR_NAME_PREFIX))
 
-        if not file_sensor_name:
-            self._upload(io.BytesIO(), self.__join(str(sensor), self.__SENSOR_NAME_PREFIX + sensor.name))
-        elif file_sensor_name.name[1:] != sensor.name:
-            self._rm(self.__join(str(sensor), file_sensor_name.name))
-            self._upload(io.BytesIO(), self.__join(str(sensor), self.__SENSOR_NAME_PREFIX + sensor.name))
+        sensor_name_file_path = self.__join(str(sensor.controller), str(sensor),
+                                            self.__SENSOR_NAME_PREFIX + sensor.name)
 
-        first_date = self.__database.get_first_sensor_data_date(sensor.id)
+        if not file_sensor_name:
+            self._upload(io.BytesIO(), sensor_name_file_path)
+        elif file_sensor_name.name[1:] != sensor.name:
+            self._rm(self.__join(str(sensor.controller), str(sensor), file_sensor_name.name))
+            self._upload(io.BytesIO(), sensor_name_file_path)
+
+        first_date = db.get_first_sensor_data_date(sensor.id)
         first_date_range = DateTimeRange.day(first_date)
         i = 0
 
@@ -142,37 +155,37 @@ class BaseStore:
                 i -= 1
                 continue
 
-            data = self.__database.get_sensor_data(sensor_id=sensor.id, datetime_range=current_range)
+            sensor_data_file_name = self.__join(str(sensor.controller), str(sensor), file_name)
+
+            data = db.get_sensor_data(sensor_id=sensor.id, datetime_range=current_range)
             if not data:
                 i -= 1
                 continue
 
-            logger.info("Converting %s", file_name)
+            logger.info("Converting %s", sensor_data_file_name)
             with io.BytesIO() as temp_stream:
-                with self.__stream_wrapper(stream=temp_stream) as wrapped_stream:
-                    self.__serializer.serialize(
+                with stream_wrapper(stream=temp_stream) as wrapped_stream:
+                    serializer.serialize(
                         out_stream=wrapped_stream,
                         data=data,
                     )
 
-                logger.info("Saving %s", file_name)
+                logger.info("Saving %s", sensor_data_file_name)
                 temp_stream.seek(0)
-                self._upload(temp_stream, self.__join(str(sensor), file_name))
+                self._upload(temp_stream, sensor_data_file_name)
 
                 i -= 1
 
-    def get(self, sensor_id: str, range: DateTimeRange) -> typing.List[bytes]:
+    def get(self, sensor: Sensor, range: DateTimeRange, stream_wrapper: StreamWrapper) -> typing.List[bytes]:
         result = []
-        # if not self.__contains_dir('', sensor_id):
-        #     return []
 
-        files = self._ls(self.__join(sensor_id))
+        files = self._ls(self.__join(sensor.controller, str(sensor)))
         current_day = range.start
         while current_day <= range.end:
             file_name = self.__get_file_name_for_day(current_day)
             if find_in_list(files, lambda file: file.name == file_name):
-                with self._get_download_stream(self.__join(sensor_id, file_name)) as file:
-                    with self.__stream_wrapper(file) as stream:
+                with self._get_download_stream(self.__join(str(sensor.controller), str(sensor), file_name)) as file:
+                    with stream_wrapper(file) as stream:
                         result.append(stream.read())
             current_day = current_day + datetime.timedelta(days=1)
 

@@ -20,11 +20,19 @@ from core.utils import DateTimeRange
 Base = declarative_base()
 
 
+class Controller(Base):
+    __tablename__ = "controllers"
+
+    id = Column(String(32), primary_key=True)
+    name = Column(String, nullable=False)
+
+
 class Sensor(Base):
     __tablename__ = "sensors"
 
     id = Column(String(32), primary_key=True)
     name = Column(String, nullable=False)
+    controller_id = Column(Integer, nullable=False)
 
     sensor_data = relationship(
         "SensorData",
@@ -72,8 +80,11 @@ class DatabaseManager:
             setattr(self, "__session", Session(create_engine(self._db_uri)))
         return getattr(self, "__session")
 
-    def get_sensors(self) -> typing.List[Sensor]:
-        return self._create_session().query(Sensor).all()
+    def get_controllers(self) -> typing.List[Controller]:
+        return self._create_session().query(Controller).all()
+
+    def get_sensors(self, controller: Controller) -> typing.List[Sensor]:
+        return self._create_session().query(Sensor).filter_by(controller_id=controller.id).all()
 
     def get_sensor_data(self, sensor_id: str, datetime_range: DateTimeRange) -> typing.List[SensorData]:
         return self._create_session().query(SensorData).filter(

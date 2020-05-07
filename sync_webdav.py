@@ -6,7 +6,7 @@ from core import serializers
 
 from core.database import DatabaseManager
 from core.encrypt import AesStreamWrapper
-from core.stores import WebDavStore, Sensor
+from core.stores import WebDavStore, Sensor, Controller
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -31,17 +31,26 @@ def main():
     logger.info("init")
 
     db = DatabaseManager(args.db_uri)
-    serializer = WebDavStore(
-        database=db,
-        serializer=getattr(serializers, args.serializer)(),
-        stream_wrapper=AesStreamWrapper(key=db.get_encryption_key()),
+    store = WebDavStore(
         uri=args.webdav_uri,
         protocol=args.webdav_protocol,
         username=args.webdav_username,
         password=args.webdav_password,
     )
-    for sensor in db.get_sensors():
-        serializer.sync(Sensor(name=sensor.name, id=sensor.id))
+
+    for controller in db.get_controllers():
+        c = Controller(controller.name)
+        store.prepare_for_sync_controller(c)
+
+        for sensor in db.get_sensors(controller):
+            s = Sensor(name=sensor.name, id=sensor.id, controller=c)
+            store.prepare_for_sync_sensor(s)
+            store.sync(
+                sensor=s,
+                db=db,
+                serializer=getattr(serializers, args.serializer)(),
+                stream_wrapper=AesStreamWrapper(key=db.get_encryption_key()),
+            )
 
     logger.info("done")
 

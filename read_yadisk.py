@@ -3,10 +3,8 @@ import logging
 import sys
 from argparse import ArgumentParser, ArgumentTypeError
 
-from core import serializers
-
 from core.encrypt import AesStreamWrapper
-from core.stores import YaDiskSynchronizer
+from core.stores import YaDiskSynchronizer, Sensor
 from core.utils import DateTimeRange
 
 logging.basicConfig(
@@ -30,7 +28,8 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("--serializer", default="CsvRawSerializer")
     parser.add_argument("--key", required=False, type=str)
-    parser.add_argument("--sensor-id", type=str, required=True)
+    parser.add_argument("--sensor", type=str, required=True)
+    parser.add_argument("--controller", type=str, required=True)
     parser.add_argument("--date", type=valid_date, required=True)
     parser.add_argument("--token", required=True)
     parser.add_argument("--output", "-o", default="out.tsv")
@@ -39,13 +38,13 @@ def main():
 
     logger.info("init")
 
-    serializer = YaDiskSynchronizer(
-        serializer=getattr(serializers, args.serializer)(),
-        stream_wrapper=AesStreamWrapper(key=args.key) if args.key else None,
-        token=args.token,
-    )
+    store = YaDiskSynchronizer(token=args.token)
 
-    for data in serializer.get(args.sensor_id, DateTimeRange.day(args.date)):
+    for data in store.get(
+            sensor=Sensor(id=args.sensor, controller=args.controller),
+            range=DateTimeRange.day(args.date),
+            stream_wrapper=AesStreamWrapper(key=args.key.encode("utf-8")) if args.key else None,
+    ):
         with open(args.output, "wb") as file:
             file.write(data)
 
