@@ -32,7 +32,16 @@ class File:
             return self.name == other.name and self.is_dir == other.is_dir
 
 
-Controller = str
+class Controller:
+    def __init__(self, mac: str = None, name: str = None):
+        self.name = name
+        self.mac = mac
+
+    def __str__(self):
+        return "{mac}".format(mac=self.mac)
+
+    def __eq__(self, other):
+        return self.mac == other.mac
 
 
 class Sensor:
@@ -47,23 +56,28 @@ class Sensor:
     def __eq__(self, other):
         return self.id == other.id
 
-    @staticmethod
-    def from_name(name: str):
-        parts = name.split('.')
-        if len(parts) == 2:
-            [sensor_id, sensor_name] = parts
-            return Sensor(id=sensor_id, name=sensor_name)
-
 
 class BaseStore:
     ROOT = "M4M"
     __SENSOR_NAME_PREFIX = "."
+    __CONTROLLER_NAME_PREFIX = "."
 
     def __init__(self):
         self.__create_root_dir()
 
-    def get_controllers(self):
-        return [file.name for file in self._ls(self.__join()) if file.is_dir]
+    def get_controllers(self) -> typing.List[Controller]:
+        result = []
+        for file in self._ls(self.__join()):
+            if file.is_dir:
+                controller_mac = file.name
+                files = self._ls(self.__join(str(file)))
+                controller_file = find_in_list(files, lambda file: file.name.startswith(self.__CONTROLLER_NAME_PREFIX))
+                if controller_file:
+                    sensor_name = controller_file.name[1:]
+                else:
+                    sensor_name = "No Name"
+                result.append(Controller(mac=controller_mac, name=sensor_name))
+        return result
 
     def get_sensors(self, controller: Controller) -> typing.List[Sensor]:
         result = []
@@ -122,13 +136,23 @@ class BaseStore:
         if controller not in remote_controllers:
             self._create_folder(self.__join(str(controller)))
 
+        files = self._ls(self.__join(str(controller)))
+        file_controller_name = find_in_list(files, lambda file: file.name.startswith(self.__CONTROLLER_NAME_PREFIX))
+
+        controller_name_file_path = self.__join(str(controller), self.__CONTROLLER_NAME_PREFIX + controller.name)
+
+        if not file_controller_name:
+            self._upload(io.BytesIO(), controller_name_file_path)
+        elif file_controller_name.name[1:] != controller.name:
+            self._rm(self.__join(str(controller), file_controller_name.name))
+            self._upload(io.BytesIO(), controller_name_file_path)
+
     def prepare_for_sync_sensor(self, sensor: Sensor):
         remote_sensors = self.get_sensors(sensor.controller)
 
         if sensor not in remote_sensors:
             self._create_folder(self.__join(str(sensor.controller), str(sensor)))
 
-    def sync(self, sensor: Sensor, db: DatabaseManager, serializer: BaseSerializer, stream_wrapper: StreamWrapper):
         files = self._ls(self.__join(str(sensor.controller), str(sensor)))
         file_sensor_name = find_in_list(files, lambda file: file.name.startswith(self.__SENSOR_NAME_PREFIX))
 
@@ -141,9 +165,12 @@ class BaseStore:
             self._rm(self.__join(str(sensor.controller), str(sensor), file_sensor_name.name))
             self._upload(io.BytesIO(), sensor_name_file_path)
 
+    def sync(self, sensor: Sensor, db: DatabaseManager, serializer: BaseSerializer, stream_wrapper: StreamWrapper):
+        files = self._ls(self.__join(str(sensor.controller), str(sensor)))
+
         first_date = db.get_first_sensor_data_date(sensor.id)
         first_date_range = DateTimeRange.day(first_date)
-        i = 0
+        i = 2
 
         while True:
             current_range = DateTimeRange.day(i)

@@ -30,7 +30,7 @@ def main():
     store = YaDiskSynchronizer(token=db.get_tokens().yandex_disk)
 
     for controller in db.get_controllers():
-        c = Controller(controller.name)
+        c = Controller(name=controller.name, mac=controller.mac)
         store.prepare_for_sync_controller(c)
 
         for sensor in db.get_sensors(controller):

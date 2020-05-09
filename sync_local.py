@@ -30,7 +30,7 @@ def main():
     db = DatabaseManager(args.db_uri)
     store = LocalStore(root=args.root)
     for controller in db.get_controllers():
-        c = Controller(controller.name)
+        c = Controller(name=controller.name, mac=controller.mac)
         store.prepare_for_sync_controller(c)
 
         for sensor in db.get_sensors(controller):

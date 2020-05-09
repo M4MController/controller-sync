@@ -25,6 +25,7 @@ class Controller(Base):
 
     id = Column(String(32), primary_key=True)
     name = Column(String, nullable=False)
+    mac = Column(String, nullable=False)
 
 
 class Sensor(Base):
