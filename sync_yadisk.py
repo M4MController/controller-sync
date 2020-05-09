@@ -2,11 +2,11 @@ import logging
 import sys
 from argparse import ArgumentParser
 
-from core import serializers
+from m4m_sync import serializers
 
-from core.database import DatabaseManager
-from core.encrypt import AesStreamWrapper
-from core.stores import YaDiskSynchronizer, Sensor, Controller
+from m4m_sync.database import DatabaseManager
+from m4m_sync.encrypt import AesStreamWrapper
+from m4m_sync.stores import YaDiskStore, Sensor, Controller
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -27,7 +27,7 @@ def main():
     logger.info("init")
 
     db = DatabaseManager(args.db_uri)
-    store = YaDiskSynchronizer(token=db.get_tokens().yandex_disk)
+    store = YaDiskStore(token=db.get_tokens().yandex_disk)
 
     for controller in db.get_controllers():
         c = Controller(name=controller.name, mac=controller.mac)

@@ -10,9 +10,9 @@ from collections import namedtuple
 import easywebdav
 import requests
 
-from core.database import DatabaseManager
-from core.serializers import BaseSerializer
-from core.utils import DateTimeRange, StreamWrapper, find_in_list
+from m4m_sync.database import DatabaseManager
+from m4m_sync.serializers import BaseSerializer
+from m4m_sync.utils import DateTimeRange, StreamWrapper, find_in_list
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class Controller:
 
 
 class Sensor:
-    def __init__(self, id: str = None, name: str = None, controller: str = None):
+    def __init__(self, id: str = None, name: str = None, controller: Controller = None):
         self.name = name
         self.id = id
         self.controller = controller
@@ -206,7 +206,7 @@ class BaseStore:
     def get(self, sensor: Sensor, range: DateTimeRange, stream_wrapper: StreamWrapper) -> typing.List[bytes]:
         result = []
 
-        files = self._ls(self.__join(sensor.controller, str(sensor)))
+        files = self._ls(self.__join(str(sensor.controller), str(sensor)))
         current_day = range.start
         while current_day <= range.end:
             file_name = self.__get_file_name_for_day(current_day)
@@ -284,7 +284,7 @@ class WebDavStore(BaseStore):
         return result
 
 
-class YaDiskSynchronizer(WebDavStore):
+class YaDiskStore(WebDavStore):
     class HTTPBearerAuth(requests.auth.AuthBase):
         def __init__(self, token):
             self.token = token
@@ -303,7 +303,7 @@ class YaDiskSynchronizer(WebDavStore):
         super().__init__(
             uri="webdav.yandex.ru",
             protocol="https",
-            auth=YaDiskSynchronizer.HTTPBearerAuth(token),
+            auth=YaDiskStore.HTTPBearerAuth(token),
             *args,
             **kwargs,
         )

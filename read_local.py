@@ -3,9 +3,9 @@ import logging
 import sys
 from argparse import ArgumentParser, ArgumentTypeError
 
-from core.encrypt import AesStreamWrapper
-from core.stores import LocalStore, Sensor
-from core.utils import DateTimeRange
+from m4m_sync.encrypt import AesStreamWrapper
+from m4m_sync.stores import LocalStore, Sensor
+from m4m_sync.utils import DateTimeRange
 
 logging.basicConfig(
     stream=sys.stdout,

@@ -2,11 +2,11 @@ import logging
 import sys
 from argparse import ArgumentParser
 
-from core import serializers
+from m4m_sync import serializers
 
-from core.database import DatabaseManager
-from core.encrypt import AesStreamWrapper
-from core.stores import WebDavStore, Sensor, Controller
+from m4m_sync.database import DatabaseManager
+from m4m_sync.encrypt import AesStreamWrapper
+from m4m_sync.stores import WebDavStore, Sensor, Controller
 
 logging.basicConfig(
     stream=sys.stdout,

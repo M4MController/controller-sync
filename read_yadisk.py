@@ -3,9 +3,9 @@ import logging
 import sys
 from argparse import ArgumentParser, ArgumentTypeError
 
-from core.encrypt import AesStreamWrapper
-from core.stores import YaDiskSynchronizer, Sensor
-from core.utils import DateTimeRange
+from m4m_sync.encrypt import AesStreamWrapper
+from m4m_sync.stores import YaDiskStore, Sensor, Controller
+from m4m_sync.utils import DateTimeRange
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -38,10 +38,10 @@ def main():
 
     logger.info("init")
 
-    store = YaDiskSynchronizer(token=args.token)
+    store = YaDiskStore(token=args.token)
 
     for data in store.get(
-            sensor=Sensor(id=args.sensor, controller=args.controller),
+            sensor=Sensor(id=args.sensor, controller=Controller(mac=args.controller)),
             range=DateTimeRange.day(args.date),
             stream_wrapper=AesStreamWrapper(key=args.key.encode("utf-8")) if args.key else None,
     ):

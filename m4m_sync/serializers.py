@@ -4,7 +4,7 @@ import io
 import json
 import typing
 
-from core.database import SensorData
+from m4m_sync.database import SensorData
 
 
 class BaseSerializer:

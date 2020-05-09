@@ -5,7 +5,7 @@ import typing
 from Crypto import Random
 from Crypto.Cipher import AES
 
-from core.utils import StreamWrapper
+from m4m_sync.utils import StreamWrapper
 
 
 class AesStreamWrapper(StreamWrapper):
