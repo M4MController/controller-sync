@@ -170,7 +170,7 @@ class BaseStore:
 
         first_date = db.get_first_sensor_data_date(sensor.id)
         first_date_range = DateTimeRange.day(first_date)
-        i = 2
+        i = 0
 
         while True:
             current_range = DateTimeRange.day(i)
