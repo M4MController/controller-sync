@@ -2,24 +2,21 @@ import base64
 import csv
 import io
 import json
-import typing
-
-from m4m_sync.database import SensorData
 
 
 class BaseSerializer:
-    def serialize(self, out_stream: io.IOBase, data: typing.List[SensorData]):
+    def serialize(self, out_stream: io.IOBase, data: list):
         return self._serialize(out_stream, data)
 
     def deserialize(self, input_stream: io.IOBase):
         return input_stream.read()
 
-    def _serialize(self, out_stream: io.IOBase, data: typing.List[SensorData]):
+    def _serialize(self, out_stream: io.IOBase, data: list):
         pass
 
 
 class CsvVerboseSerializer(BaseSerializer):
-    def _serialize(self, out_stream: io.IOBase, data: typing.List[SensorData]):
+    def _serialize(self, out_stream: io.IOBase, data: list):
         if not data:
             return
 
@@ -39,7 +36,7 @@ class CsvVerboseSerializer(BaseSerializer):
 
 
 class CsvRawSerializer(BaseSerializer):
-    def _serialize(self, out_stream: io.IOBase, data: typing.List[SensorData]):
+    def _serialize(self, out_stream: io.IOBase, data: list):
         if not data:
             return
 

@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 
 from m4m_sync import serializers
 
-from m4m_sync.database import DatabaseManager
+from database import DatabaseManager
 from m4m_sync.encrypt import AesStreamWrapper
 from m4m_sync.stores import WebDavStore, Sensor, Controller
 

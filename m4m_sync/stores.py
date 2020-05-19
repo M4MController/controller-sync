@@ -5,12 +5,9 @@ import os
 import pathlib
 import typing
 
-from collections import namedtuple
-
 import easywebdav
 import requests
 
-from m4m_sync.database import DatabaseManager
 from m4m_sync.serializers import BaseSerializer
 from m4m_sync.utils import DateTimeRange, StreamWrapper, find_in_list
 
@@ -165,12 +162,18 @@ class BaseStore:
             self._rm(self.__join(str(sensor.controller), str(sensor), file_sensor_name.name))
             self._upload(io.BytesIO(), sensor_name_file_path)
 
-    def sync(self, sensor: Sensor, db: DatabaseManager, serializer: BaseSerializer, stream_wrapper: StreamWrapper):
+    def sync(
+            self,
+            sensor: Sensor,
+            serializer: BaseSerializer,
+            stream_wrapper: StreamWrapper,
+            first_date: datetime.datetime,
+            get_data,
+    ):
         files = self._ls(self.__join(str(sensor.controller), str(sensor)))
 
-        first_date = db.get_first_sensor_data_date(sensor.id)
         first_date_range = DateTimeRange.day(first_date)
-        i = -1
+        i = 2
 
         while True:
             current_range = DateTimeRange.day(i)
@@ -184,7 +187,7 @@ class BaseStore:
 
             sensor_data_file_name = self.__join(str(sensor.controller), str(sensor), file_name)
 
-            data = db.get_sensor_data(sensor_id=sensor.id, datetime_range=current_range)
+            data = get_data(current_range)
             if not data:
                 i -= 1
                 continue
