@@ -4,6 +4,7 @@ import logging
 import os
 import pathlib
 import typing
+import urllib
 
 import easywebdav
 import requests
@@ -70,7 +71,7 @@ class BaseStore:
                 files = self._ls(self.__join(str(file)))
                 controller_file = find_in_list(files, lambda file: file.name.startswith(self.__CONTROLLER_NAME_PREFIX))
                 if controller_file:
-                    sensor_name = controller_file.name[1:]
+                    sensor_name = urllib.parse.unquote(controller_file.name[1:])
                 else:
                     sensor_name = "No Name"
                 result.append(Controller(mac=controller_mac, name=sensor_name))
@@ -84,7 +85,7 @@ class BaseStore:
                 files = self._ls(self.__join(str(controller), sensor_id))
                 sensor_file = find_in_list(files, lambda file: file.name.startswith(self.__SENSOR_NAME_PREFIX))
                 if sensor_file:
-                    sensor_name = sensor_file.name[1:]
+                    sensor_name = urllib.parse.unquote(sensor_file.name[1:])
                 else:
                     sensor_name = "No Name"
                 result.append(Sensor(id=sensor_id, name=sensor_name, controller=controller))
